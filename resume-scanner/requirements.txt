@@ -1,0 +1,9 @@
+streamlit
+pandas
+scikit-learn
+nltk
+spacy==3.7.2
+PyPDF2
+python-docx
+joblib
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.0/en_core_web_sm-3.7.0-py3-none-any.whl

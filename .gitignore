@@ -1,0 +1,11 @@
+# Ignore Python envs and large binaries
+resume-venv/
+__pycache__/
+*.pyc
+*.pkl
+*.joblib
+*.dylib
+*.so
+*.onnx
+.DS_Store
+

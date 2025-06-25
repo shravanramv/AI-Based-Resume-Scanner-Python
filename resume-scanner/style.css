@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+body {
+    background: #F5F7FA;
+    font-family: 'Inter', sans-serif;
+    color: #333;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    font-weight: 600;
+}
+
+.hero-header {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.hero-header h1 {
+    font-size: 2.5rem;
+    color: #2C3E50;
+    margin-bottom: 0.5rem;
+}
+
+.hero-header p {
+    font-size: 1.1rem;
+    color: #555;
+}
+
+.card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+
+.primary-btn {
+    background: #0D6EFD !important;
+    color: white !important;
+    padding: 0.6rem 1.2rem !important;
+    border-radius: 6px !important;
+    font-size: 1rem !important;
+    border: none;
+    cursor: pointer;
+}
+
+.primary-btn:hover {
+    background: #0B5ED7 !important;
+}
+
+footer {
+    text-align: center;
+    color: #888;
+    margin-top: 60px;
+    font-size: 0.9rem;
+}
+
+button[kind="secondary"] {
+    background-color: #0D6EFD !important;
+    color: white !important;
+    border-radius: 6px !important;
+    font-size: 1rem !important;
+    padding: 0.6rem 1.2rem !important;
+    border: none !important;
+}
+
+button[kind="secondary"]:hover {
+    background-color: #0B5ED7 !important;
+}
