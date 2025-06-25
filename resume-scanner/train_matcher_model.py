@@ -6,117 +6,110 @@ import PyPDF2
 import docx
 import re
 from tqdm import tqdm
-from textblob import TextBlob
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import StandardScaler
 from joblib import dump
-from sentence_transformers import SentenceTransformer
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 
-# ⏱️ Utility function for timing
-def log_time(message):
-    print(f"\n🕒 {message} at {time.strftime('%H:%M:%S')}")
+# --- Soft skills list for boosting
+SOFT_SKILLS = [
+    "communication", "teamwork", "leadership", "adaptability", "creativity",
+    "critical thinking", "problem solving", "time management", "collaboration",
+    "empathy", "resilience", "flexibility", "initiative", "work ethic"
+]
 
-# 📄 Extract text from documents
-def extract_text_from_pdf(path):
-    reader = PyPDF2.PdfReader(path)
-    return "\n".join([page.extract_text() or "" for page in reader.pages])
+# --- PDF / DOCX text extraction
+def extract_text(path):
+    ext = path.lower().split(".")[-1]
+    try:
+        if ext == "pdf":
+            with open(path, "rb") as f:
+                reader = PyPDF2.PdfReader(f)
+                return "\n".join([page.extract_text() or "" for page in reader.pages])
+        elif ext == "docx":
+            doc = docx.Document(path)
+            return "\n".join([para.text for para in doc.paragraphs])
+        else:
+            return ""
+    except Exception as e:
+        print(f"❌ Failed to extract {path}: {e}")
+        return ""
 
-def extract_text_from_docx(path):
-    doc = docx.Document(path)
-    return "\n".join([para.text for para in doc.paragraphs])
+# --- Basic text cleaner + soft skill booster
+def preprocess(text):
+    text = re.sub(r'[^a-zA-Z\s]', ' ', text).lower()
+    tokens = text.split()
+    boosted = tokens[:]
+    for skill in SOFT_SKILLS:
+        if skill in tokens:
+            boosted.extend([skill] * 2)  # boost weight
+    return " ".join(boosted)
 
-# 🔤 Basic text cleaning
-def basic_clean(text):
-    text = text.lower()
-    text = re.sub(r"[^a-z\s]", " ", text)
-    return " ".join(text.split())
+# --- Section extractor for scoring
+def split_sections(text):
+    sections = {"education": "", "experience": "", "skills": ""}
+    current = ""
+    for line in text.splitlines():
+        line_lower = line.lower()
+        if "education" in line_lower:
+            current = "education"
+        elif "experience" in line_lower:
+            current = "experience"
+        elif "skill" in line_lower:
+            current = "skills"
+        elif current:
+            sections[current] += " " + line
+    return sections
 
-# 💬 Extract soft skills + sentiment
-def extract_soft_skills(text):
-    soft_skills = [
-        "teamwork", "communication", "adaptability", "leadership", "creativity",
-        "critical thinking", "time management", "collaboration", "empathy"
-    ]
-    found = [skill for skill in soft_skills if skill in text.lower()]
-    sentiment = TextBlob(text).sentiment.polarity
-    return found, sentiment
+# --- START: Training process
+def log(msg): print(f"\n🟩 {msg} @ {time.strftime('%H:%M:%S')}")
 
-# 📊 Load and process dataset
-log_time("Loading labeled_pairs.csv")
+log("Loading labeled_pairs.csv")
 df = pd.read_csv("labeled_pairs.csv")
 
-features, labels = [], []
-bert_model = SentenceTransformer("all-MiniLM-L6-v2")
+texts, labels = [], []
 
-log_time("Extracting features from resumes and JDs")
-for idx, row in tqdm(df.iterrows(), total=len(df), desc="🔄 Processing"):
-    # Resume text
-    res_txt = extract_text_from_pdf(row.resume_path) \
-        if row.resume_path.lower().endswith(".pdf") else extract_text_from_docx(row.resume_path)
-    
-    # JD text
-    jd_txt = extract_text_from_pdf(row.jd_path) \
-        if row.jd_path.lower().endswith(".pdf") else extract_text_from_docx(row.jd_path)
-    
-    # Clean and combine
-    res_clean = basic_clean(res_txt)
-    jd_clean = basic_clean(jd_txt)
-    combined_text = res_clean + " " + jd_clean
+log("Extracting and preprocessing text")
+for _, row in tqdm(df.iterrows(), total=len(df), desc="🔍 Processing"):
+    resume = extract_text(row.resume_path)
+    jd = extract_text(row.jd_path)
 
-    # 🔠 BERT embedding
-    embedding = bert_model.encode(combined_text)
-
-    # 💡 Soft skill count + sentiment score
-    soft_skills_found, sentiment = extract_soft_skills(res_txt)
-    soft_skill_count = len(soft_skills_found)
-
-    # Combine all features
-    feature_vector = np.append(embedding, [soft_skill_count, sentiment])
-    features.append(feature_vector)
+    # Combine all + soft skills
+    combined = preprocess(resume + " " + jd)
+    texts.append(combined)
     labels.append(row.label)
 
-X = np.vstack(features)
+log("Vectorizing with TF-IDF")
+tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+X = tfidf.fit_transform(texts)
 y = np.array(labels)
 
-# 📈 Train/test split
-log_time("Splitting dataset")
+log("Splitting train/test set")
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+    X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-# ⚖️ Normalize for better performance
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+log("Training Logistic Regression")
+model = LogisticRegression(max_iter=500)
+model.fit(X_train, y_train)
 
-# 🧠 Train model
-log_time("Training Logistic Regression")
-model = LogisticRegression(max_iter=1000)
-model.fit(X_train_scaled, y_train)
+log("Evaluating")
+y_pred = model.predict(X_test)
+y_proba = model.predict_proba(X_test)[:, 1]
 
-# ✅ Evaluation
-log_time("Evaluating model")
-y_pred = model.predict(X_test_scaled)
-y_proba = model.predict_proba(X_test_scaled)[:, 1]
+print(f"\n✅ Accuracy: {accuracy_score(y_test, y_pred):.2f}")
+print(f"✅ ROC-AUC:  {roc_auc_score(y_test, y_proba):.2f}")
+print("\n📊 Classification Report:")
+print(classification_report(y_test, y_pred))
 
-print("\n📊 Accuracy:", accuracy_score(y_test, y_pred))
-print("📈 ROC-AUC:", roc_auc_score(y_test, y_proba))
-print("\n📋 Classification Report:\n", classification_report(y_test, y_pred))
-
-# 🔁 Cross-validation
-log_time("Running 5-fold cross-validation")
+log("5-Fold Cross-Validation (F1 Score)")
 cv_scores = cross_val_score(model, X, y, cv=5, scoring="f1")
-print("🔁 5-fold F1 scores:", cv_scores)
-print("📊 Mean F1:", cv_scores.mean())
+print(f"📈 Avg F1 Score: {cv_scores.mean():.2f}")
 
-# 💾 Save artifacts
-log_time("Saving model artifacts")
+log("Saving model and vectorizer")
 os.makedirs("models", exist_ok=True)
-dump(model, "models/resume_matcher_bert.joblib")
-dump(scaler, "models/scaler.joblib")
-dump(bert_model, "models/bert_encoder.joblib")
+dump(model, "models/resume_matcher.joblib")
+dump(tfidf, "models/tfidf_vectorizer.joblib")
 
-print("✅ Model and vectorizer saved in /models")
-log_time("All tasks complete")
+log("✅ All Done!")
