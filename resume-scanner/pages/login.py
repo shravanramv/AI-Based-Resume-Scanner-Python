@@ -1,26 +1,22 @@
 import streamlit as st
 import sqlite3
-import os
 
-# --- Page Config ---
+# --- Page config ---
 st.set_page_config(page_title="Login", page_icon="🔐", layout="wide")
 
 # --- Load CSS ---
 def load_css():
     try:
-        with open("static/style.css") as f:
+        with open("style.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        st.warning("⚠️ style.css not found.")
+        pass
 
 load_css()
 
-# --- Database path ---
-USER_DB_PATH = os.path.join("databases", "users.db")
-
 # --- Login logic ---
 def login_user(username, password):
-    conn = sqlite3.connect(USER_DB_PATH)
+    conn = sqlite3.connect("databases/users.db")  # ✅ Updated path to reflect new structure
     c = conn.cursor()
     c.execute("SELECT role FROM users WHERE username = ? AND password = ?", (username, password))
     result = c.fetchone()
@@ -39,18 +35,19 @@ with col2:
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        login_button = st.form_submit_button("Login", type="primary")
+        login_button = st.form_submit_button("Login")
 
         if login_button:
             if not username or not password:
-                st.warning("⚠️ Please enter both username and password.")
+                st.warning("Please enter both username and password.")
             else:
                 role = login_user(username, password)
                 if role:
-                    st.session_state["username"] = username
-                    st.session_state["role"] = role
+                    st.session_state['username'] = username
+                    st.session_state['role'] = role
                     st.success(f"✅ Logged in as {role.capitalize()}!")
 
+                    # ✅ Navigate to appropriate dashboard
                     if role == "recruiter":
                         st.switch_page("pages/recruiter_dashboard.py")
                     else:

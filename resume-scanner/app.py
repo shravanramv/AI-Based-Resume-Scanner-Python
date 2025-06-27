@@ -44,10 +44,10 @@ with st.container():
     col1, col2, col3 = st.columns([4, 2, 4])
     with col2:
         if st.button("🔐 Login", use_container_width=True):
-            st.switch_page("auth/login.py")
+            st.switch_page("pages/login.py")
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("📝 Register", use_container_width=True):
-            st.switch_page("auth/register.py")
+            st.switch_page("pages/register.py")
 
 # --- Footer ---
 st.markdown("<hr style='margin-top: 3em;'>", unsafe_allow_html=True)
