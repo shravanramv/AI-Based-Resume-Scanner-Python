@@ -60,7 +60,7 @@ with st.form("post_job_form"):
             st.warning("Please fill in both fields.")
 
 # --- Load BERT Model, Scaler, Classifier ---
-bert_model = load("models/bert_model.joblib")
+bert_model = load("models/bert_encoder.joblib")
 scaler = load("models/scaler.joblib")
 model = load("models/resume_matcher_Logistic_Regression.joblib")
 
