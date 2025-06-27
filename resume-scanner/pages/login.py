@@ -1,29 +1,31 @@
 import streamlit as st
 import sqlite3
+import os
 
-# --- Page config ---
+# --- Page Config ---
 st.set_page_config(page_title="Login", page_icon="🔐", layout="wide")
 
 # --- Load CSS ---
 def load_css():
     try:
-        with open("style.css") as f:
+        with open("static/style.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        pass
+        st.warning("⚠️ style.css not found.")
 
 load_css()
 
+# --- Database path ---
+USER_DB_PATH = os.path.join("databases", "users.db")
+
 # --- Login logic ---
 def login_user(username, password):
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(USER_DB_PATH)
     c = conn.cursor()
     c.execute("SELECT role FROM users WHERE username = ? AND password = ?", (username, password))
     result = c.fetchone()
     conn.close()
-    if result:
-        return result[0]
-    return None
+    return result[0] if result else None
 
 # --- Centered Header ---
 st.markdown("<br>", unsafe_allow_html=True)
@@ -41,12 +43,12 @@ with col2:
 
         if login_button:
             if not username or not password:
-                st.warning("Please enter both username and password.")
+                st.warning("⚠️ Please enter both username and password.")
             else:
                 role = login_user(username, password)
                 if role:
-                    st.session_state['username'] = username
-                    st.session_state['role'] = role
+                    st.session_state["username"] = username
+                    st.session_state["role"] = role
                     st.success(f"✅ Logged in as {role.capitalize()}!")
 
                     if role == "recruiter":
