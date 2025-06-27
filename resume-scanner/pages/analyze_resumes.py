@@ -8,19 +8,11 @@ import os
 import PyPDF2
 import docx
 import re
-import nltk
-from nltk.corpus import stopwords
+import numpy as np
 import matplotlib.pyplot as plt
 
 # --- Page Config ---
 st.set_page_config(page_title="Resume Analysis", page_icon="📊", layout="wide")
-
-# --- NLTK Setup ---
-if not hasattr(st.session_state, "nltk_loaded"):
-    nltk.download("stopwords")
-    st.session_state.nltk_loaded = True
-
-STOPWORDS = set(stopwords.words("english"))
 
 # --- Custom CSS ---
 st.markdown("""
@@ -40,7 +32,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Helpers ---
+# --- Helper: Resume Text Extraction ---
 def extract_text(file_bytes, filename):
     ext = filename.lower().split('.')[-1]
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}')
@@ -48,23 +40,19 @@ def extract_text(file_bytes, filename):
     temp_file.close()
 
     text = ""
-    if ext == "pdf":
-        reader = PyPDF2.PdfReader(temp_file.name)
-        text = "\n".join([page.extract_text() or "" for page in reader.pages])
-    elif ext in ["docx", "doc"]:
-        doc = docx.Document(temp_file.name)
-        text = "\n".join([p.text for p in doc.paragraphs])
+    try:
+        if ext == "pdf":
+            reader = PyPDF2.PdfReader(temp_file.name)
+            text = "\n".join([p.extract_text() or "" for p in reader.pages])
+        elif ext in ["docx", "doc"]:
+            docx_file = docx.Document(temp_file.name)
+            text = "\n".join([p.text for p in docx_file.paragraphs])
+    finally:
+        os.remove(temp_file.name)
 
-    os.remove(temp_file.name)
     return text
 
-def basic_preprocess(text):
-    text = text.lower()
-    text = re.sub(r'[^a-z\s]', ' ', text)
-    tokens = text.split()
-    tokens = [t for t in tokens if t not in STOPWORDS]
-    return " ".join(tokens)
-
+# --- Helper: Section Splitting ---
 def split_sections(text):
     sections = {"Education": "", "Experience": "", "Skills": ""}
     lines = text.splitlines()
@@ -81,7 +69,7 @@ def split_sections(text):
             sections[current] += " " + line
     return sections
 
-# --- Session & Role Check ---
+# --- Session Check ---
 if 'username' not in st.session_state or st.session_state['role'] != 'recruiter':
     st.error("Unauthorized access")
     st.stop()
@@ -90,12 +78,18 @@ if 'selected_job_id' not in st.session_state:
     st.warning("No job selected.")
     st.stop()
 
-# --- Load ML Model ---
-model = load("models/resume_matcher.joblib")
-vectorizer = load("models/tfidf_vectorizer.joblib")
+# --- Load Models ---
+try:
+    bert_model = load("models/bert_encoder.joblib")
+    scaler = load("models/scaler.joblib")
+    model = load("models/resume_matcher_Logistic_Regression.joblib")
+except Exception as e:
+    st.error(f"❌ Error loading models: {e}")
+    st.stop()
+
 job_id = st.session_state['selected_job_id']
 
-# --- DB Fetch ---
+# --- Fetch Job Info ---
 conn = connect_db()
 c = conn.cursor()
 c.execute("SELECT job_title, job_description FROM jobs WHERE id = ?", (job_id,))
@@ -108,6 +102,7 @@ if not job_data:
 job_title, job_description = job_data
 st.title(f"📊 Resume Analysis for: {job_title}")
 
+# --- Fetch Applications ---
 c.execute("""
     SELECT applicant_username, resume, resume_filename
     FROM applications
@@ -119,36 +114,46 @@ if not applications:
     st.warning("No resumes submitted yet.")
     st.stop()
 
-# --- Score Processing ---
+# --- Processing ---
 scores = []
 section_scores_map = {}
 
 for username, resume_blob, filename in applications:
     resume_text = extract_text(resume_blob, filename)
-    combined = basic_preprocess(resume_text + " " + job_description)
-    vectorized = vectorizer.transform([combined])
-    overall_score = model.predict_proba(vectorized)[0][1]
 
-    # Section-level matching
+    # Encode full resume + JD
+    resume_emb = bert_model.encode([resume_text])[0]
+    jd_emb = bert_model.encode([job_description])[0]
+    cos_sim = np.dot(resume_emb, jd_emb) / (np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb))
+    dot = np.dot(resume_emb, jd_emb)
+    full_features = np.hstack([resume_emb, jd_emb, [cos_sim, dot]])
+    full_scaled = scaler.transform([full_features])
+    overall_score = round(model.predict_proba(full_scaled)[0][1], 2)
+
+    # Encode each section
     sections = split_sections(resume_text)
     section_scores = {}
     for sec, sec_text in sections.items():
-        combined_sec = basic_preprocess(sec_text + " " + job_description)
-        vec = vectorizer.transform([combined_sec])
-        section_scores[sec] = round(model.predict_proba(vec)[0][1], 2)
+        sec_emb = bert_model.encode([sec_text])[0]
+        sec_sim = np.dot(sec_emb, jd_emb) / (np.linalg.norm(sec_emb) * np.linalg.norm(jd_emb))
+        sec_dot = np.dot(sec_emb, jd_emb)
+        sec_features = np.hstack([sec_emb, jd_emb, [sec_sim, sec_dot]])
+        sec_scaled = scaler.transform([sec_features])
+        sec_score = round(model.predict_proba(sec_scaled)[0][1], 2)
+        section_scores[sec] = sec_score
 
     scores.append({
         "Applicant": username,
         "Filename": filename,
-        "Match Score": round(overall_score, 2),
+        "Match Score": overall_score,
         "ResumeBlob": resume_blob
     })
     section_scores_map[username] = section_scores
 
-# --- DataFrame ---
+# --- Create DataFrame ---
 df = pd.DataFrame(scores).sort_values(by="Match Score", ascending=False)
 
-# --- Filter UI ---
+# --- Filter by Score ---
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("### 🎯 Filter Applicants by Score")
 min_score = st.slider("Minimum Match Score", 0.0, 1.0, 0.0, 0.01)
@@ -157,21 +162,19 @@ st.dataframe(filtered_df.drop(columns=["ResumeBlob"]), use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Summary Metrics ---
-avg_score = filtered_df["Match Score"].mean() if not filtered_df.empty else 0.0
-
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    st.metric("📈 Average Match Score", f"{avg_score:.2f}")
+    st.metric("📈 Average Match Score", f"{filtered_df['Match Score'].mean():.2f}" if not filtered_df.empty else "0.00")
 with col2:
     st.metric("🧑 Applicants Shown", len(filtered_df))
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Score Distribution ---
+# --- Histogram ---
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("### 📉 Match Score Distribution")
 fig, ax = plt.subplots()
-ax.hist(df["Match Score"], bins=5, color="#77c3ec", edgecolor="black")
+ax.hist(df["Match Score"], bins=5, color="#4da6ff", edgecolor="black")
 ax.set_xlabel("Match Score")
 ax.set_ylabel("Number of Applicants")
 st.pyplot(fig)
