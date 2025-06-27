@@ -1,71 +1,48 @@
-🕒 Loading Sentence-BERT at 14:57:52
-
-🕒 Generating labeled pairs at 14:57:54
-📁 Categories: 100%|██████████| 24/24 [08:10<00:00, 20.44s/it]
-✅ 6996 pairs created (1749 positive, 5247 negative)
-
-🕒 Encoding with BERT at 15:09:44
-Batches: 100%
- 219/219 [16:29<00:00,  3.21s/it]
-Batches: 100%
- 219/219 [01:39<00:00,  2.82it/s]
-
-🕒 Creating similarity features at 15:27:55
-🔗 Similarity: 100%|██████████| 6996/6996 [00:00<00:00, 95380.24it/s]
-🕒 Train/Test split and scaling at 15:27:55
-
-🕒 Applying SMOTE at 15:27:55
-
-
-🕒 Training models at 15:27:56
+🕒 Training models at 23:14:58
 
 🧠 Training: Logistic Regression
-✅ Accuracy: 0.8700
-✅ ROC-AUC: 0.9231
+✅ Accuracy: 0.8549
+✅ ROC-AUC: 0.9131
 📋 Report:
               precision    recall  f1-score   support
 
-           0       0.94      0.89      0.91      1050
-           1       0.71      0.82      0.76       350
+           0       0.92      0.88      0.90      1049
+           1       0.68      0.78      0.73       350
 
-    accuracy                           0.87      1400
-   macro avg       0.82      0.85      0.84      1400
-weighted avg       0.88      0.87      0.87      1400
+    accuracy                           0.85      1399
+   macro avg       0.80      0.83      0.82      1399
+weighted avg       0.86      0.85      0.86      1399
 
 
 🧠 Training: Random Forest
-✅ Accuracy: 0.8529
-✅ ROC-AUC: 0.8854
+✅ Accuracy: 0.8449
+✅ ROC-AUC: 0.8756
 📋 Report:
               precision    recall  f1-score   support
 
-           0       0.90      0.90      0.90      1050
-           1       0.70      0.72      0.71       350
+           0       0.90      0.89      0.90      1049
+           1       0.68      0.71      0.69       350
 
-    accuracy                           0.85      1400
-   macro avg       0.80      0.81      0.81      1400
-weighted avg       0.85      0.85      0.85      1400
+    accuracy                           0.84      1399
+   macro avg       0.79      0.80      0.80      1399
+weighted avg       0.85      0.84      0.85      1399
 
 
 🧠 Training: XGBoost
-/usr/local/lib/python3.11/dist-packages/xgboost/core.py:158: UserWarning: [15:29:52] WARNING: /workspace/src/learner.cc:740: 
-Parameters: { "use_label_encoder" } are not used.
-
-  warnings.warn(smsg, UserWarning)
-✅ Accuracy: 0.8729
-✅ ROC-AUC: 0.9208
+✅ Accuracy: 0.8649
+✅ ROC-AUC: 0.9047
 📋 Report:
               precision    recall  f1-score   support
 
-           0       0.91      0.92      0.92      1050
-           1       0.75      0.73      0.74       350
+           0       0.90      0.92      0.91      1049
+           1       0.74      0.71      0.72       350
 
-    accuracy                           0.87      1400
-   macro avg       0.83      0.83      0.83      1400
-weighted avg       0.87      0.87      0.87      1400
+    accuracy                           0.86      1399
+   macro avg       0.82      0.81      0.82      1399
+weighted avg       0.86      0.86      0.86      1399
 
 
-🕒 Saving best model: Logistic Regression at 15:30:23
-✅ All model artifacts saved to /content/models
+🕒 Saving best model: Logistic Regression at 23:15:33
+✅ All model artifacts saved to models
 
-🕒 ✅ All tasks complete at 15:30:23
+🕒 ✅ All tasks complete at 23:15:33
