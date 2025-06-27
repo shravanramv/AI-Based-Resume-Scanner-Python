@@ -1,7 +1,7 @@
 from uuid import uuid4
 import streamlit as st
 import pandas as pd
-from database import connect_db
+from utils.database import connect_db
 from joblib import load
 import tempfile
 import os

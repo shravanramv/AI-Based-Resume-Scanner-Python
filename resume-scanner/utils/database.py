@@ -1,7 +1,8 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+# Absolute path to the shared database file in `databases/`
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "databases", "users.db"))
 
 def connect_db():
     return sqlite3.connect(DB_PATH)
@@ -10,21 +11,14 @@ def init_db():
     conn = connect_db()
     c = conn.cursor()
 
-    # Recruiters table
+    # Unified users table for both roles
     c.execute('''
-        CREATE TABLE IF NOT EXISTS recruiters (
+        CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
-            password TEXT
-        )
-    ''')
-
-    # Applicants table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS applicants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT
+            password TEXT,
+            role TEXT CHECK(role IN ('recruiter', 'applicant')),
+            company TEXT
         )
     ''')
 
@@ -53,40 +47,24 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Recruiter functions
-def create_recruiter(username, password):
+# --- Auth Functions (for login.py) ---
+def get_user_role(username, password):
+    conn = connect_db()
+    c = conn.cursor()
+    c.execute("SELECT role FROM users WHERE username = ? AND password = ?", (username, password))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def register_user(username, password, role, company):
     conn = connect_db()
     c = conn.cursor()
     try:
-        c.execute('INSERT INTO recruiters (username, password) VALUES (?, ?)', (username, password))
+        c.execute("INSERT INTO users (username, password, role, company) VALUES (?, ?, ?, ?)",
+                  (username, password, role, company))
         conn.commit()
+        return True
     except sqlite3.IntegrityError:
-        pass
-    conn.close()
-
-def authenticate_recruiter(username, password):
-    conn = connect_db()
-    c = conn.cursor()
-    c.execute('SELECT * FROM recruiters WHERE username = ? AND password = ?', (username, password))
-    user = c.fetchone()
-    conn.close()
-    return user
-
-# Applicant functions
-def create_applicant(username, password):
-    conn = connect_db()
-    c = conn.cursor()
-    try:
-        c.execute('INSERT INTO applicants (username, password) VALUES (?, ?)', (username, password))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        pass
-    conn.close()
-
-def authenticate_applicant(username, password):
-    conn = connect_db()
-    c = conn.cursor()
-    c.execute('SELECT * FROM applicants WHERE username = ? AND password = ?', (username, password))
-    user = c.fetchone()
-    conn.close()
-    return user
+        return False
+    finally:
+        conn.close()

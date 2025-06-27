@@ -16,7 +16,7 @@ load_css()
 
 # --- Initialize DB ---
 def init_db():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect("databases/users.db")
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +47,7 @@ init_db()
 # --- Register User Function ---
 def register_user(username, password, role, company):
     try:
-        conn = sqlite3.connect("users.db")
+        conn = sqlite3.connect("databases/users.db")
         c = conn.cursor()
         c.execute("INSERT INTO users (username, password, role, company) VALUES (?, ?, ?, ?)",
                   (username, password, role, company))
@@ -72,7 +72,7 @@ with col2:
         password = st.text_input("Password", type="password")
         company = st.text_input("Company Name") if role == "Recruiter" else None
 
-        submitted = st.form_submit_button("Register", type="primary")
+        submitted = st.form_submit_button("Register")
 
         if submitted:
             if not username or not password or (role == "Recruiter" and not company):
@@ -80,6 +80,15 @@ with col2:
             else:
                 success = register_user(username, password, role.lower(), company)
                 if success:
-                    st.success("✅ Registration successful! You can now log in.")
+                    st.success("✅ Registration successful! Redirecting...")
+
+                    # Auto-login
+                    st.session_state["username"] = username
+                    st.session_state["role"] = role.lower()
+
+                    if role.lower() == "recruiter":
+                        st.switch_page("pages/recruiter_dashboard.py")
+                    else:
+                        st.switch_page("pages/applicant_dashboard.py")
                 else:
                     st.error("❌ Username already exists.")

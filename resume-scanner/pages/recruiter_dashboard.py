@@ -7,7 +7,7 @@ import docx
 import re
 import numpy as np
 from joblib import load
-from database import connect_db
+from utils.database import connect_db
 
 # --- Page Config ---
 st.set_page_config(page_title="Recruiter Dashboard", page_icon="🧑‍💼", layout="wide")
@@ -49,8 +49,10 @@ with st.form("post_job_form"):
         if job_title and job_description:
             conn = connect_db()
             c = conn.cursor()
-            c.execute("INSERT INTO jobs (job_title, job_description, recruiter_username) VALUES (?, ?, ?)", 
-                      (job_title, job_description, username))
+            c.execute("""
+                INSERT INTO jobs (job_title, job_description, recruiter_username)
+                VALUES (?, ?, ?)
+            """, (job_title, job_description, username))
             conn.commit()
             conn.close()
             st.success("✅ Job posted successfully!")
@@ -64,7 +66,7 @@ try:
     scaler = load("models/scaler.joblib")
     model = load("models/resume_matcher_Logistic_Regression.joblib")
 except Exception as e:
-    st.error(f"Model loading error: {e}")
+    st.error(f"❌ Error loading model: {e}")
     st.stop()
 
 # --- Resume Text Extraction ---
@@ -73,18 +75,19 @@ def extract_text(file_bytes, filename):
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}')
     temp_file.write(file_bytes)
     temp_file.close()
-
+    text = ""
     try:
         if ext == "pdf":
             reader = PyPDF2.PdfReader(temp_file.name)
-            return "\n".join([page.extract_text() or "" for page in reader.pages])
+            text = "\n".join([page.extract_text() or "" for page in reader.pages])
         elif ext in ["docx", "doc"]:
             docx_file = docx.Document(temp_file.name)
-            return "\n".join([p.text for p in docx_file.paragraphs])
-    except:
-        return ""
+            text = "\n".join([p.text for p in docx_file.paragraphs])
+    except Exception as e:
+        print(f"Error reading {filename}: {e}")
     finally:
         os.remove(temp_file.name)
+    return text
 
 # --- Resume Score Cache ---
 if "resume_score_cache" not in st.session_state:
@@ -104,8 +107,10 @@ else:
         with st.expander(f"💼 {title}"):
             st.write(desc)
 
-            # Load applications
-            c.execute("SELECT applicant_username, resume, resume_filename FROM applications WHERE job_id = ?", (job_id,))
+            c.execute("""
+                SELECT applicant_username, resume, resume_filename
+                FROM applications WHERE job_id = ?
+            """, (job_id,))
             applications = c.fetchall()
 
             if not applications:
@@ -125,9 +130,11 @@ else:
                     if not resume_text:
                         continue
 
-                    # --- Encode and Score ---
+                    # --- BERT Encode ---
                     resume_emb = bert_model.encode([resume_text])[0]
                     jd_emb = bert_model.encode([desc])[0]
+
+                    # --- Feature Vector ---
                     sim = np.dot(resume_emb, jd_emb) / (np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb))
                     dot = np.dot(resume_emb, jd_emb)
                     features = np.hstack([resume_emb, jd_emb, [sim, dot]])
@@ -149,8 +156,13 @@ else:
 
             st.session_state.resume_score_cache[job_id] = cache
 
-            # Filtered Display
-            threshold = st.slider(f"🎯 Minimum Match Score to Show (Job: {title})", 0.0, 1.0, 0.0, 0.01, key=f"slider_{job_id}")
+            # --- Filter Slider ---
+            threshold = st.slider(
+                f"🎯 Minimum Match Score to Show (Job: {title})",
+                0.0, 1.0, 0.0, 0.01,
+                key=f"slider_{job_id}"
+            )
+
             filtered_scores = [r for r in resume_scores if r[1] >= threshold]
             filtered_scores.sort(key=lambda x: x[1], reverse=True)
 
@@ -165,7 +177,7 @@ else:
                 )
                 st.markdown("---")
 
-            # Resume Analysis
+            # --- Resume Analysis ---
             if st.button(f"📊 Analyze Resumes for '{title}'", key=f"analyze_{job_id}"):
                 st.session_state['selected_job_id'] = job_id
                 st.switch_page("pages/analyze_resumes.py")
