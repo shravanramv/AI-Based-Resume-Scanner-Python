@@ -28,13 +28,13 @@ nltk
 
 ## 🛠️ Running Locally
 
-Clone the project:
+1. Clone the project:
 
 ```bash
 git clone https://github.com/shravanramv/AI-Based-Resume-Scanner-Python.git
 ```
 
-Create and activate virtual environment (Python 3.10):
+2. Create and activate virtual environment (Python 3.10):
 
 ```bash
 python3.10 -m venv resume-env
@@ -45,7 +45,7 @@ source resume-env/bin/activate  # macOS/Linux
 resume-env\Scripts\activate     # Windows
 ```
 
-Upgrade Pip & Install All Dependencies:
+3. Upgrade Pip & Install All Dependencies:
 
 ```bash
 pip install --upgrade pip setuptools wheel
@@ -73,14 +73,14 @@ pip install matplotlib
 pip install nltk
 ```
 
-Make sure to also download NLTK stopwords:
+4. Make sure to also download NLTK stopwords:
 
 ```python
 import nltk
 nltk.download("stopwords")
 ```
 
-Run the app:
+5. Run the app:
 
 ```bash
 streamlit run app.py
