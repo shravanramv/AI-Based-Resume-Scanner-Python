@@ -24,4 +24,64 @@ tqdm==4.66.4
 pillow==10.3.0
 matplotlib
 nltk
+```
 
+## Run Locally
+
+Clone the project:
+
+```bash
+git clone https://github.com/shravanramv/AI-Based-Resume-Scanner-Python.git
+```
+
+Create and activate virtual environment (Python 3.10):
+
+```bash
+python3.10 -m venv resume-env
+source resume-env/bin/activate  # macOS/Linux
+
+# OR
+
+resume-env\Scripts\activate     # Windows
+```
+
+Upgrade Pip & Install All Dependencies:
+
+```bash
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+```
+
+Or install manually using:
+
+```bash
+pip install numpy==1.24.4 
+pip install scikit-learn==1.3.2 
+pip install sentence-transformers==2.2.2 
+pip install transformers==4.29.2
+pip install huggingface-hub==0.14.1 
+pip install tokenizers==0.13.3 
+pip install spacy==3.6.1 
+pip install PyPDF2==3.0.1 
+pip install python-docx==1.1.0 
+pip install streamlit==1.35.0 
+pip install xgboost==2.0.3 
+pip install imbalanced-learn==0.11.0 pandas==2.1.4 
+pip install tqdm==4.66.4
+pip install pillow==10.3.0 
+pip install matplotlib 
+pip install nltk
+```
+
+Make sure to also download NLTK stopwords:
+
+```python
+import nltk
+nltk.download("stopwords")
+```
+
+Run the app:
+
+```bash
+streamlit run app.py
+```
