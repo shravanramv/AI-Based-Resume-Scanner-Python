@@ -85,3 +85,17 @@ Run the app:
 ```bash
 streamlit run app.py
 ```
+
+## ✅ Features
+
+- User registration/login (applicants & recruiters)
+
+- Resume upload and job applications
+
+- AI-based match scoring using BERT and logistic regression
+
+- Section-based insights (skills, education, experience)
+
+- Resume filtering based on match score
+
+- Resume downloads and job posting management
