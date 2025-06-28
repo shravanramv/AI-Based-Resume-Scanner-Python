@@ -2,7 +2,7 @@
 
 AI Resume Scanner is a Python-based web application that enables recruiters to post job listings and automatically match submitted resumes using an AI-powered scoring system. Applicants can browse and apply for jobs by uploading their resumes directly through the portal. The app uses BERT embeddings and a logistic regression model to evaluate resume-job relevance. It features separate dashboards for recruiters and applicants, with built-in resume analysis and secure authentication.
 
-## Library Versions
+## 📦 Library Versions
 
 This project uses Python 3.10 and the following package versions:
 
@@ -26,7 +26,7 @@ matplotlib
 nltk
 ```
 
-## Run Locally
+## 🛠️ Running Locally
 
 Clone the project:
 
