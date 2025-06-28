@@ -95,4 +95,11 @@ streamlit run app.py
 - Resume filtering based on match score
 - Resume downloads and job posting management
 
+## 🧠 Model Info
 
+The ML model uses Sentence-BERT for text embeddings and logistic regression for classification. It was trained on labeled pairs of resumes and job descriptions using cosine similarity and dot product features. The best-performing model is saved in the ```models/``` folder.
+
+## 🧑‍💻 Author
+Built by **Shravan Ram Venkateswaran** for **Multimedia University**. 
+
+**Final Year Project (FYP) T2510 2025**
