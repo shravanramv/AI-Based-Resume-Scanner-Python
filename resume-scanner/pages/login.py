@@ -16,7 +16,8 @@ def load_css():
 load_css()
 
 # --- Database path ---
-USER_DB_PATH = os.path.join("databases", "users.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+USER_DB_PATH = os.path.join(BASE_DIR, "..", "databases", "users.db")
 
 # --- Login logic ---
 def login_user(username, password):
