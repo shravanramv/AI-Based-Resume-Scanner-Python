@@ -9,6 +9,20 @@ import numpy as np
 from joblib import load
 from utils.database import connect_db
 
+# --- Soft Skills Matching ---
+SOFT_SKILLS = [
+    "communication", "teamwork", "leadership", "adaptability", "problem-solving",
+    "creativity", "time management", "empathy", "collaboration", "emotional intelligence"
+]
+
+def count_soft_skills_match(resume_text, jd_text):
+    resume_skills = [s for s in SOFT_SKILLS if s in resume_text.lower()]
+    jd_skills = [s for s in SOFT_SKILLS if s in jd_text.lower()]
+    if not jd_skills:
+        return 0
+    matched = set(resume_skills) & set(jd_skills)
+    return len(matched) / len(jd_skills)
+
 # --- Page Config ---
 st.set_page_config(page_title="Recruiter Dashboard", page_icon="🧑‍💼", layout="wide")
 
@@ -125,6 +139,7 @@ else:
                 key = f"{applicant_username}_{resume_filename}"
                 if key in cache:
                     score = cache[key]["score"]
+                    matched_skills = cache[key].get("matched_skills", [])
                 else:
                     resume_text = extract_text(resume_blob, resume_filename)
                     if not resume_text:
@@ -134,24 +149,33 @@ else:
                     resume_emb = bert_model.encode([resume_text])[0]
                     jd_emb = bert_model.encode([desc])[0]
 
+                    # --- Soft Skill Score ---
+                    soft_skill_score = count_soft_skills_match(resume_text, desc)
+
                     # --- Feature Vector ---
                     sim = np.dot(resume_emb, jd_emb) / (np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb))
                     dot = np.dot(resume_emb, jd_emb)
-                    features = np.hstack([resume_emb, jd_emb, [sim, dot]])
+                    features = np.hstack([resume_emb, jd_emb, [sim, dot, soft_skill_score]])
                     scaled = scaler.transform([features])
                     score = model.predict_proba(scaled)[0][1]
+
+                    # --- Matched Skills for Display ---
+                    matched_skills = list(set([s for s in SOFT_SKILLS if s in resume_text.lower()]) &
+                                          set([s for s in SOFT_SKILLS if s in desc.lower()]))
 
                     cache[key] = {
                         "score": score,
                         "resume_blob": resume_blob,
-                        "filename": resume_filename
+                        "filename": resume_filename,
+                        "matched_skills": matched_skills
                     }
 
                 resume_scores.append((
                     applicant_username,
                     cache[key]["score"],
                     cache[key]["filename"],
-                    cache[key]["resume_blob"]
+                    cache[key]["resume_blob"],
+                    cache[key].get("matched_skills", [])
                 ))
 
             st.session_state.resume_score_cache[job_id] = cache
@@ -166,8 +190,12 @@ else:
             filtered_scores = [r for r in resume_scores if r[1] >= threshold]
             filtered_scores.sort(key=lambda x: x[1], reverse=True)
 
-            for idx, (applicant_username, score, filename, resume_blob) in enumerate(filtered_scores, 1):
+            for idx, (applicant_username, score, filename, resume_blob, matched_skills) in enumerate(filtered_scores, 1):
                 st.markdown(f"**{idx}. 👤 {applicant_username} — Match Score: `{score:.2f}`**")
+
+                if matched_skills:
+                    st.markdown(f"✅ **Matched Soft Skills**: {', '.join(matched_skills)}")
+
                 st.download_button(
                     label=f"📥 Download {filename}",
                     data=resume_blob,

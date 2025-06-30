@@ -17,13 +17,28 @@ from joblib import dump
 from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
+# ==== Soft Skills List ====
+SOFT_SKILLS = [
+    "communication", "teamwork", "leadership", "adaptability", "problem-solving",
+    "creativity", "time management", "empathy", "collaboration", "emotional intelligence"
+]
+
+def count_soft_skills_match(resume_text, jd_text):
+    resume_skills = [s for s in SOFT_SKILLS if s in resume_text.lower()]
+    jd_skills = [s for s in SOFT_SKILLS if s in jd_text.lower()]
+    if not jd_skills:
+        return 0
+    matched = set(resume_skills) & set(jd_skills)
+    return len(matched) / len(jd_skills)
 
 # ==== Timing Helper ====
 def log_time(msg):
     print(f"\n🕒 {msg} at {time.strftime('%H:%M:%S')}")
 
 # ==== Paths ====
-RESUME_DIR = "data/resumes"  # adjust this if your resumes are elsewhere
+RESUME_DIR = "data/resumes"
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -58,7 +73,7 @@ def generate_jd_fallback(category):
 
 # ==== Generate Labeled Pairs ====
 log_time("Generating labeled pairs")
-resume_texts, jd_texts, labels = [], [], []
+resume_texts, jd_texts, labels, soft_skill_scores = [], [], [], []
 categories = sorted([d for d in os.listdir(RESUME_DIR) if os.path.isdir(os.path.join(RESUME_DIR, d))])
 
 random.seed(42)
@@ -112,15 +127,23 @@ for cat in tqdm(categories, desc="📁 Categories"):
         res_text = clean(extract_text(res_path))
         if len(res_text) < 100:
             continue
+        jd_text = jd_map[cat]
+        score = count_soft_skills_match(res_text, jd_text)
+
         # Positive
         resume_texts.append(res_text)
-        jd_texts.append(jd_map[cat])
+        jd_texts.append(jd_text)
+        soft_skill_scores.append(score)
         labels.append(1)
+
         # Negatives
         neg_cats = [c for c in categories if c != cat]
         for neg_cat in random.sample(neg_cats, min(3, len(neg_cats))):
+            jd_text_neg = jd_map[neg_cat]
+            score_neg = count_soft_skills_match(res_text, jd_text_neg)
             resume_texts.append(res_text)
-            jd_texts.append(jd_map[neg_cat])
+            jd_texts.append(jd_text_neg)
+            soft_skill_scores.append(score_neg)
             labels.append(0)
 
 print(f"✅ {len(labels)} pairs created ({sum(labels)} positive, {len(labels)-sum(labels)} negative)")
@@ -141,7 +164,13 @@ for i in tqdm(range(len(res_emb)), desc="🔗 Similarity"):
     dot = np.dot(res_emb[i], jd_emb[i])
     similarity.append([sim, dot])
 
-X = np.hstack([res_emb, jd_emb, np.array(similarity)])
+# ==== Combine Features ====
+X = np.hstack([
+    res_emb,
+    jd_emb,
+    np.array(similarity),
+    np.array(soft_skill_scores).reshape(-1, 1)  # Add soft skill match score
+])
 y = np.array(labels)
 
 # ==== Train/Test Split & Scaling ====

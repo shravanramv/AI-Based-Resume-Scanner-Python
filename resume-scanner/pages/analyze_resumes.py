@@ -11,6 +11,20 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
+# --- Soft Skill Matching ---
+SOFT_SKILLS = [
+    "communication", "teamwork", "leadership", "adaptability", "problem-solving",
+    "creativity", "time management", "empathy", "collaboration", "emotional intelligence"
+]
+
+def count_soft_skills_match(resume_text, jd_text):
+    resume_skills = [s for s in SOFT_SKILLS if s in resume_text.lower()]
+    jd_skills = [s for s in SOFT_SKILLS if s in jd_text.lower()]
+    if not jd_skills:
+        return 0, []
+    matched = set(resume_skills) & set(jd_skills)
+    return len(matched) / len(jd_skills), list(matched)
+
 # --- Page Config ---
 st.set_page_config(page_title="Resume Analysis", page_icon="📊", layout="wide")
 
@@ -124,9 +138,13 @@ for username, resume_blob, filename in applications:
     # Encode full resume + JD
     resume_emb = bert_model.encode([resume_text])[0]
     jd_emb = bert_model.encode([job_description])[0]
+
+    # Soft skill score
+    soft_score, matched_soft_skills = count_soft_skills_match(resume_text, job_description)
+
     cos_sim = np.dot(resume_emb, jd_emb) / (np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb))
     dot = np.dot(resume_emb, jd_emb)
-    full_features = np.hstack([resume_emb, jd_emb, [cos_sim, dot]])
+    full_features = np.hstack([resume_emb, jd_emb, [cos_sim, dot, soft_score]])
     full_scaled = scaler.transform([full_features])
     overall_score = round(model.predict_proba(full_scaled)[0][1], 2)
 
@@ -137,7 +155,7 @@ for username, resume_blob, filename in applications:
         sec_emb = bert_model.encode([sec_text])[0]
         sec_sim = np.dot(sec_emb, jd_emb) / (np.linalg.norm(sec_emb) * np.linalg.norm(jd_emb))
         sec_dot = np.dot(sec_emb, jd_emb)
-        sec_features = np.hstack([sec_emb, jd_emb, [sec_sim, sec_dot]])
+        sec_features = np.hstack([sec_emb, jd_emb, [sec_sim, sec_dot, soft_score]])
         sec_scaled = scaler.transform([sec_features])
         sec_score = round(model.predict_proba(sec_scaled)[0][1], 2)
         section_scores[sec] = sec_score
@@ -146,7 +164,8 @@ for username, resume_blob, filename in applications:
         "Applicant": username,
         "Filename": filename,
         "Match Score": overall_score,
-        "ResumeBlob": resume_blob
+        "ResumeBlob": resume_blob,
+        "Matched Soft Skills": ", ".join(matched_soft_skills) if matched_soft_skills else "-"
     })
     section_scores_map[username] = section_scores
 
@@ -187,6 +206,10 @@ for row in filtered_df.itertuples():
     username = row.Applicant
     st.markdown(f"**👤 {username}**")
     st.table(pd.DataFrame([section_scores_map[username]]))
+
+    if row._asdict().get("Matched Soft Skills") and row._asdict()["Matched Soft Skills"] != "-":
+        st.markdown(f"✅ **Matched Soft Skills**: {row._asdict()['Matched Soft Skills']}")
+
     st.download_button(
         label=f"📥 Download {row.Filename}",
         data=row.ResumeBlob,
